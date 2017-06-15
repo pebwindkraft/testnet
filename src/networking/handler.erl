@@ -33,6 +33,8 @@ doit({block, N, Many}) ->
     {ok, block:read_many(N, Many)};
 doit({block, N}) -> 
     {ok, block:read_int(N)};
+doit({block_sizecap, N, Cap}) ->
+    {ok, block:read_many_sizecap(N, Cap - 10)};  %-10 for some begining and end addictional characters
 doit({header, N}) -> 
     {ok, block:block_to_header(block:read_int(N))};
 doit({headers, Many, N}) -> 

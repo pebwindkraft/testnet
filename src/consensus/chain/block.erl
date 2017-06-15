@@ -7,7 +7,8 @@
 	 block_to_header/1,
 	 median_last/2, trees/1, trees_hash/1,
 	 guess_number_of_cpu_cores/0, difficulty/1,
-	 txs/1, genesis_maker/0, new_id/1, read_many/2
+	 txs/1, genesis_maker/0, new_id/1, read_many/2,
+	 read_many_sizecap/2
 	]).
 
 -record(block, {height, prev_hash, txs, trees, 
@@ -393,6 +394,28 @@ lg(X) ->
     lgh(X, 0).
 lgh(1, X) -> X;
 lgh(N, X) -> lgh(N div 2, X+1).
+
+read_many_sizecap(Cur, Cap) ->
+    if  %so we don't have a lot of unnecessery functions
+        is_integer(Cur) ->
+            X = read_int(Cur);
+        true ->  %if it's not an integer then it's hash
+            X = read(Cur)
+    end,
+    case X of
+        empty -> [];
+        _ ->
+            Xsize = iolist_size(packer:pack(X)) + 1, %+1 for the delimeter char (,)
+            io:fwrite("~w = ~w ~n", [X, Xsize]),
+            if
+                Xsize > Cap ->
+                    [];
+                true ->
+                    PH = prev_hash(X),
+                    [X | read_many_sizecap(PH, Cap - Xsize)] 
+            end
+    end.
+
 read_many(N, Many) ->
     io:fwrite(packer:pack({read_many, N, Many})),
     X = read_int(N),
