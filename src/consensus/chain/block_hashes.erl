@@ -8,7 +8,7 @@ init(ok) ->
     X = db:read(?LOC),
     K = if
 	    X == "" ->
-		i_new();
+		i_insert(block:genesis_hash(),i_new());
 	    true -> X
 	end,
     {ok, K}.

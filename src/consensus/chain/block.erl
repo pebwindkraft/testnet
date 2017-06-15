@@ -8,7 +8,7 @@
 	 median_last/2, trees/1, trees_hash/1,
 	 guess_number_of_cpu_cores/0, difficulty/1,
 	 txs/1, genesis_maker/0, new_id/1, read_many/2,
-	 read_many_sizecap/2
+	 read_many_sizecap/2, genesis_hash/0
 	]).
 
 -record(block, {height, prev_hash, txs, trees, 
@@ -98,7 +98,7 @@ genesis_maker() ->
     GovInit = governance:genesis_state(),
     Trees = trees:new(Accounts, 0, 0, 0, 0, GovInit),
     TreeRoot = trees:root_hash(Trees),
-Block = {block_plus,{block,0,
+    Block = {block_plus,{block,0,
 		     <<0:(8*constants:hash_size())>>,
                    %<<0,0,0,0,0,0,0,0,0,0,0,0>>,
                    [],
@@ -116,6 +116,8 @@ Block = {block_plus,{block,0,
 	%     4080,44358461744572027408730},
     Block.
     %#block_plus{block = Block, trees = Trees}.
+genesis_hash() ->
+    hash(genesis()).
 genesis() ->
 {block_plus,{block,0,
                    <<0,0,0,0,0,0,0,0,0,0,0,0>>,
