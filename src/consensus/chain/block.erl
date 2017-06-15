@@ -408,7 +408,7 @@ read_many_sizecap(Cur, Cap) ->
         empty -> [];
         _ ->
             Xsize = iolist_size(packer:pack(X)) + 1, %+1 for the delimeter char (,)
-            io:fwrite("~w = ~w ~n", [X, Xsize]),
+            %io:fwrite("~w = ~w ~n", [X, Xsize]),
             if
                 Xsize > Cap ->
                     [];
