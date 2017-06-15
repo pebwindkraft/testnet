@@ -399,7 +399,7 @@ read_many(N, Many) ->
     PH = prev_hash(X),
     [X|read_many2(PH, Many)].
 read_many2(H, 1) ->
-    read(H);
+    [read(H)];
 read_many2(H, M) ->
     X = read(H),
     case X of
