@@ -43,15 +43,15 @@ sync(IP, Port, MyHeight) ->
 			     HH < Height ->
 				 %{ok, Block} = talker:talk({block, HH}, IP, Port),
 				 %io:fwrite("HH < Height\n"),
-				 talk({block, HH}, IP, Port,
-				      fun(Y) -> 
-					      trade_blocks(IP, Port, [Y], HH)
-						    end);
+				 talk({block_sizecap, HH, free_constants:download_blocks_sizecap()}, IP, Port,
+				      fun(Y) -> trade_blocks(IP, Port, [Y]) end);
 			     true ->
-				 trade_blocks(IP, Port, [TopBlock], Height),
+				 trade_blocks(IP, Port, [TopBlock]),
 				 get_txs(IP, Port)
 				     
 			 end,
+                         TopHash = block:hash(TopBlock),
+	                 send_blocks(IP, Port, top:doit(), TopHash, [], 0),
 			 trade_peers(IP, Port);
 			 %Time = timer:now_diff(erlang:timestamp(), S),%1 second is 1000000.
 			 %Score = abs(Time)*(1+abs(Height - MyHeight));
@@ -70,32 +70,49 @@ get_blocks(Height, N, IP, Port, _) ->
 
 %get_blocks(_, 0, _, _, L) -> L;
 %get_blocks(H, _, _, _, L) when H < 1 -> L;
-%get_blocks(Height, N, IP, Port, L) -> 
+%get_blocks(Height, N, IP, Port, L) ->
     %should send multliple blocks at a time!!
 %    talk({block, Height}, IP, Port,
 %	 fun(X) -> get_blocks(Height-1, N-1, IP, Port, [X|L])
 %	 end).
     
-trade_blocks(_IP, _Port, L, 1) ->
-    sync3(L);
-trade_blocks(IP, Port, [PrevBlock|PBT], Height) ->
+trade_blocks(IP, Port, [PrevBlock|PBT]) ->
     %io:fwrite("trade blocks"),
     %"nextBlock" is from earlier in the chain than prevblock. we are walking backwards
-    PrevHash = block:hash(PrevBlock),
-    %{ok, PowBlock} = talker:talk({block, Height}, IP, Port),
-    {PrevHash, NextHash} = block:check1(PrevBlock),
-    M = block:read(PrevHash),%check if it is in our memory already.
-    case M of
-	empty -> 
-	    talk({block, Height-1}, IP, Port,
-		 fun(NextBlock) ->
-			 NextHash = block:hash(NextBlock),
-			 trade_blocks(IP, Port, [NextBlock|[PrevBlock|PBT]], Height - 1)
-		 end);
-	_ -> 
-	    sync3(PBT),
-	    send_blocks(IP, Port, top:doit(), PrevHash, [], 0)
+    case block:height(PrevBlock) of 
+        1 ->  %if PrevBlock is block 1 we stop
+            sync3([PrevBlock|PBT]);
+        _ ->
+            PrevHash = block:hash(PrevBlock),
+            %{ok, PowBlock} = talker:talk({block, Height}, IP, Port),
+            {PrevHash, NextHash} = block:check1(PrevBlock),
+            M = block:read(PrevHash),%check if it is in our memory already.
+            case M of
+	        empty -> 
+	            talk({block_sizecap, NextHash, free_constants:download_blocks_sizecap()}, IP, Port,
+	    	        fun(NextBatch) ->  %Heighest first, lowest last. We need to reverse
+		    	    %[NextBlock | _] = NextBatch,     
+                            %NextHash = block:hash(NextBlock), We do this kind of checks with check1 function when we do sync3 and blockabsorber is invoked
+		            trade_blocks(IP, Port, lists:append(lists:reverse(NextBatch),[PrevBlock|PBT]))
+		         end);
+	        _ -> 
+                    NewBlocks = remove_known_blocks(PBT),
+	            sync3(NewBlocks)
+            end
     end.
+
+remove_known_blocks([]) ->
+    [];
+remove_known_blocks([PrevBlock | PBT]) ->
+    PrevHash = block:hash(PrevBlock),
+    M = block:read(PrevHash),
+    case M of 
+        empty ->
+            [PrevBlock | PBT];
+        _ ->
+            remove_known_blocks(PBT)
+    end.
+
 send_blocks(IP, Port, T, T, L, _N) -> 
     send_blocks2(IP, Port, L);
 send_blocks(IP, Port, TopHash, CommonHash, L, N) ->

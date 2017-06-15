@@ -58,5 +58,9 @@ max_channel_delay() -> 100.
 
 download_blocks_batch() ->
     100.
+
+download_blocks_sizecap() -> %max size of one download request in bytes
+    50000.
+
 garbage_period() ->
     50.
