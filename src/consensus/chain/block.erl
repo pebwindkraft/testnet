@@ -397,25 +397,25 @@ lg(X) ->
 lgh(1, X) -> X;
 lgh(N, X) -> lgh(N div 2, X+1).
 
+get_block(Block) when is_integer(Block) ->
+    read_int(Block);
+get_block(Block) -> %if it's not an integer then it's hash
+    read(Block).
+
 read_many_sizecap(Cur, Cap) ->
-    if  %so we don't have a lot of unnecessery functions
-        is_integer(Cur) ->
-            X = read_int(Cur);
-        true ->  %if it's not an integer then it's hash
-            X = read(Cur)
-    end,
-    case X of
-        empty -> [];
-        _ ->
-            Xsize = iolist_size(packer:pack(X)) + 1, %+1 for the delimeter char (,)
-            %io:fwrite("~w = ~w ~n", [X, Xsize]),
-            if
-                Xsize > Cap ->
-                    [];
-                true ->
-                    PH = prev_hash(X),
-                    [X | read_many_sizecap(PH, Cap - Xsize)] 
-            end
+    X = get_block(Cur),
+    read_many_sizecap_internal(X, Cap).
+
+read_many_sizecap_internal(empty, _) ->
+    [];
+read_many_sizecap_internal(X, Cap) ->
+    Xsize = iolist_size(packer:pack(X)) + 1, %+1 for the delimeter char (,)
+    if
+        Xsize > Cap ->
+            [];
+        true ->
+            PH = prev_hash(X),
+            [X | read_many_sizecap(PH, Cap - Xsize)] 
     end.
 
 read_many(N, Many) ->
