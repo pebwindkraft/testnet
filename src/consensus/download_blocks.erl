@@ -47,11 +47,10 @@ sync(IP, Port, MyHeight) ->
 				      fun(Y) -> trade_blocks(IP, Port, Y) end);
 			     true ->
 				 trade_blocks(IP, Port, [TopBlock]),
-				 get_txs(IP, Port)
-				     
+				 get_txs(IP, Port),
+                                 TopHash = block:hash(TopBlock),
+                                 send_blocks(IP, Port, top:doit(), TopHash, [], 0)
 			 end,
-                         TopHash = block:hash(TopBlock),
-	                 send_blocks(IP, Port, top:doit(), TopHash, [], 0),
 			 trade_peers(IP, Port);
 			 %Time = timer:now_diff(erlang:timestamp(), S),%1 second is 1000000.
 			 %Score = abs(Time)*(1+abs(Height - MyHeight));
