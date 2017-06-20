@@ -44,7 +44,7 @@ sync(IP, Port, MyHeight) ->
 				 %{ok, Block} = talker:talk({block, HH}, IP, Port),
 				 %io:fwrite("HH < Height\n"),
 				 talk({block_sizecap, HH, free_constants:download_blocks_sizecap()}, IP, Port,
-				      fun(Y) -> trade_blocks(IP, Port, [Y]) end);
+				      fun(Y) -> trade_blocks(IP, Port, Y) end);
 			     true ->
 				 trade_blocks(IP, Port, [TopBlock]),
 				 get_txs(IP, Port)
