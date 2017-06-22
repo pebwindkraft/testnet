@@ -114,15 +114,12 @@ remove_known_blocks([PrevBlock | PBT]) ->
 
 send_blocks(IP, Port, T, T, L, _N) -> 
     send_blocks2(IP, Port, L);
+send_blocks(IP, Port, 0, _, L, _) ->
+    send_blocks2(IP, Port, L);
 send_blocks(IP, Port, TopHash, CommonHash, L, N) ->
-    if
-	TopHash == 0 -> send_blocks2(IP, Port, L);
-	%N>4000 -> send_blocks2(IP, Port, L);
-	true -> 
-	    BlockPlus = block:read(TopHash),
-	    PrevHash = block:prev_hash(BlockPlus),
-	    send_blocks(IP, Port, PrevHash, CommonHash, [BlockPlus|L], N+1)
-    end.
+    BlockPlus = block:read(TopHash),
+    PrevHash = block:prev_hash(BlockPlus),
+    send_blocks(IP, Port, PrevHash, CommonHash, [BlockPlus|L], N+1).
 send_blocks2(_, _, []) -> ok;
 send_blocks2(IP, Port, [Block|T]) -> 
     talker:talk({give_block, Block}, IP, Port),
