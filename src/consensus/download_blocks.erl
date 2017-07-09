@@ -47,9 +47,7 @@ sync(IP, Port, MyHeight) ->
 				      fun(Y) -> trade_blocks(IP, Port, Y) end);
 			     true ->
 				 trade_blocks(IP, Port, [TopBlock]),
-				 get_txs(IP, Port),
-                                 TopHash = block:hash(TopBlock),
-                                 send_blocks(IP, Port, top:doit(), TopHash, [], 0)
+				 get_txs(IP, Port)
 			 end,
 			 trade_peers(IP, Port);
 			 %Time = timer:now_diff(erlang:timestamp(), S),%1 second is 1000000.
@@ -80,6 +78,7 @@ trade_blocks(IP, Port, [PrevBlock|PBT]) ->
     %"nextBlock" is from earlier in the chain than prevblock. we are walking backwards
     case block:height(PrevBlock) of 
         1 ->  %if PrevBlock is block 1 we stop
+            send_blocks(IP, Port, top:doit(), block:genesis_hash(), [], 0),
             sync3([PrevBlock|PBT]);
         _ ->
             PrevHash = block:hash(PrevBlock),
@@ -95,6 +94,9 @@ trade_blocks(IP, Port, [PrevBlock|PBT]) ->
 		            trade_blocks(IP, Port, lists:append(lists:reverse(NextBatch),[PrevBlock|PBT]))
 		         end);
 	        _ -> 
+                    LastCommonHash = block:hash(last_known_block([PrevBlock|PBT])),
+                    %We send blocks before sync3 to make sure we don't send any downloaded blocks
+                    send_blocks(IP, Port, top:doit(), LastCommonHash, [], block:height(M)),
                     NewBlocks = remove_known_blocks(PBT),
 	            sync3(NewBlocks)
             end
@@ -112,19 +114,44 @@ remove_known_blocks([PrevBlock | PBT]) ->
             remove_known_blocks(PBT)
     end.
 
-send_blocks(IP, Port, T, T, L, _N) -> 
+last_known_block([Block]) ->
+    Block;
+last_known_block([First | [Second | Other]]) ->
+    SecondHash = block:hash(Second),
+    M = block:read(SecondHash),
+    case M of
+        empty ->
+            First;
+        _ ->
+            last_known_block([Second | Other])
+    end.
+
+send_blocks(IP, Port, T, T, L, _) -> 
     send_blocks2(IP, Port, L);
 send_blocks(IP, Port, 0, _, L, _) ->
     send_blocks2(IP, Port, L);
-send_blocks(IP, Port, TopHash, CommonHash, L, N) ->
+send_blocks(IP, Port, TopHash, CommonHash, L, CommonHeight) ->
     BlockPlus = block:read(TopHash),
     PrevHash = block:prev_hash(BlockPlus),
-    send_blocks(IP, Port, PrevHash, CommonHash, [BlockPlus|L], N+1).
+    case block:height(BlockPlus) of
+        CommonHeight -> %if we realize, we are on diffrent fork then the peer
+            BlockCommon = block:read(CommonHash),
+            NewCommon = block:prev_hash(BlockCommon),
+            send_blocks(IP, Port, PrevHash, NewCommon, [BlockPlus|L], block:height(BlockCommon)-1); %we send one more block till we find one common with our main chain and the fork
+        _ ->
+            send_blocks(IP, Port, PrevHash, CommonHash, [BlockPlus|L], CommonHeight)
+    end.
 send_blocks2(_, _, []) -> ok;
 send_blocks2(IP, Port, [Block|T]) -> 
-    talker:talk({give_block, Block}, IP, Port),
-    timer:sleep(20),
-    send_blocks2(IP, Port, T).
+    case talker:talk({give_block, Block}, IP, Port) of
+        {ok, _} ->
+            timer:sleep(20),
+            send_blocks2(IP, Port, T);
+        _ ->
+            io:fwrite("send error at block with height"),
+            io:fwrite(integer_to_list(block:height(Block))),
+            io:fwrite("\n")
+    end.
     
 sync3([]) -> ok;
 sync3([B|T]) -> 
