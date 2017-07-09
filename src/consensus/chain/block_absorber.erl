@@ -31,7 +31,7 @@ doit(X) ->
 	%  end).
     
 absorb(BP) ->
-    %BH = block:hash(BP),
+    true = block:height(BP) < easy:height() + 2,  %simple check
     BH = block:hash(BP),
     {BH, NextBlock} = block:check1(BP),
     case block_hashes:check(BH) of
