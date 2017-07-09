@@ -16,35 +16,28 @@ sync(Peer, MyHeight) ->
     %peers:update_score(Peer, peers:initial_score()),
     io:fwrite("top of sync\n"),
     %S = erlang:timestamp(),
-    talk({top}, Peer, 
-	 fun(X) ->
-		 case X of
-		     {error, failed_connect} -> 
-			 io:fwrite("failed connect"),
-			 ok;
-		     {ok, TopBlock, Height}  ->
-			 %io:fwrite("got topblock\n"),
-			 DBB = application:get_env(ae_core, download_blocks_batch),
-			 HH = MyHeight + DBB,
-			 if
-			     HH < Height ->
-				 %{ok, Block} = talker:talk({block, HH}, IP, Port),
-				 %io:fwrite("HH < Height\n"),
-				 talk({block_sizecap, HH, application:get_env(ae_core, download_blocks_sizecap),}, Peer,
-				      fun(Y) -> trade_blocks(Peer, Y) end);
-			     true ->
-				 trade_blocks(Peer, [TopBlock]),
-				 get_txs(Peer)
-			 end,
-			 trade_peers(Peer);
-			 %Time = timer:now_diff(erlang:timestamp(), S),%1 second is 1000000.
-			 %Score = abs(Time)*(1+abs(Height - MyHeight));
-		     X -> io:fwrite(X)
-		 end
-	 end).
-
-
-
+    TopResp = talker:talk({top}, Peer),
+    case TopResp of
+        {error, failed_connect} -> 
+            io:fwrite("failed connect"),
+            ok;
+        {ok, TopBlock, Height}  ->
+            %io:fwrite("got topblock\n"),
+            {ok, DBB} = application:get_env(ae_core, download_blocks_batch),
+	    HH = MyHeight + DBB,
+	    if
+                HH < Height ->
+		    %io:fwrite("HH < Height\n"),
+                    {ok, Sizecap} = application:get_env(ae_core, download_blocks_sizecap),
+                    {ok, Blocks} = talker:talk({block_sizecap, HH, Sizecap}, Peer),
+                    trade_blocks(Peer, Blocks);
+                true ->
+                    trade_blocks(Peer, [TopBlock]),
+                    get_txs(Peer)
+            end,
+	    trade_peers(Peer);
+            X -> io:fwrite(X)
+    end.
 
 trade_blocks(Peer, [PrevBlock|PBT]) ->
     %io:fwrite("trade blocks"),
@@ -60,12 +53,10 @@ trade_blocks(Peer, [PrevBlock|PBT]) ->
             M = block:read(PrevHash),%check if it is in our memory already.
             case M of
 	        empty -> 
-	            talk({block_sizecap, NextHash, application:get_env(ae_core, download_blocks_sizecap)}, Peer,
-	    	        fun(NextBatch) ->  %Heighest first, lowest last. We need to reverse
-		    	    %[NextBlock | _] = NextBatch,     
-                            %NextHash = block:hash(NextBlock), We do this kind of checks with check1 function when we do blockabsorber is invoked
-		            trade_blocks(Peer, lists:append(lists:reverse(NextBatch),[PrevBlock|PBT]))
-		         end);
+                    {ok, Sizecap} = application:get_env(ae_core, download_blocks_sizecap),
+                    {ok, NextBatch} = talker:talk({block_sizecap, NextHash, Sizecap}, Peer),
+	    	    %Heighest first, lowest last. We need to reverse
+		    trade_blocks(Peer, lists:append(lists:reverse(NextBatch),[PrevBlock|PBT]));
 	        _ -> 
                     LastCommonHash = block:hash(last_known_block([PrevBlock|PBT])),
                     %We send blocks before absorbing to make sure we don't send any downloaded blocks

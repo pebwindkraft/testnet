@@ -8,7 +8,7 @@
 	 median_last/2, trees/1, trees_hash/1,
 	 guess_number_of_cpu_cores/0, difficulty/1,
 	 txs/1, genesis_maker/0, new_id/1, read_many/2,
-	 read_many_sizecap/2, genesis_hash/0
+	 read_many_sizecap/2
 	]).
 
 -record(block, {height, prev_hash, txs, trees, 
@@ -113,10 +113,9 @@ genesis_maker() ->
     %Block = {pow,{block,0,<<0:(8*constants:hash_size())>>,[], TreeRoot,
 	%	  1,0,4080, <<>>, constants:magic()},
 	%     4080,44358461744572027408730},
+    block_hashes:add(hash(Block)),
     Block.
     %#block_plus{block = Block, trees = Trees}.
-genesis_hash() ->
-    hash(read_int(0)).
 %genesis() ->
 %{block_plus,{block,0,
 %                   <<0,0,0,0,0,0,0,0,0,0,0,0>>,
@@ -471,6 +470,28 @@ read_many2(H, M) ->
 	    PH = prev_hash(X),
 	    [read(H)|read_many2(PH, M-1)]
     end.
+
+get_block(Block) when is_integer(Block) ->
+    read_int(Block);
+get_block(Block) -> %if it's not an integer then it's hash
+    read(Block).
+
+read_many_sizecap(Cur, Cap) ->
+    X = get_block(Cur),
+    read_many_sizecap_internal(X, Cap).
+
+read_many_sizecap_internal(empty, _) ->
+    [];
+read_many_sizecap_internal(X, Cap) ->
+    Xsize = iolist_size(packer:pack(X)) + 1, %+1 for the delimeter char (,)
+    if
+        Xsize > Cap ->
+            [];
+        true ->
+            PH = prev_hash(X),
+            [X | read_many_sizecap(PH, Cap - Xsize)] 
+end.
+
 read_int(N) ->%currently O(n), needs to be improved to O(lg(n))
     true = N >= 0,
     read_int(N,top:doit()).
