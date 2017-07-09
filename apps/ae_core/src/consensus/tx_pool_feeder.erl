@@ -1,0 +1,94 @@
+-module(tx_pool_feeder).
+-behaviour(gen_server).
+
+%% API
+-export([absorb/1,
+         absorb_unsafe/1]).
+
+-export([start_link/0]).
+-export([init/1,
+         handle_call/3,
+         handle_cast/2,
+         handle_info/2,
+         terminate/2,
+         code_change/3]).
+
+%% API functions
+
+absorb(Txs) when is_list(Txs) ->
+    [absorb(Tx) || Tx <- Txs];
+
+absorb(SignedTx) ->
+    {_, _, Txs} = tx_pool:data(),
+    case is_in(SignedTx, Txs) of
+        true ->
+            ok;
+        false ->
+            gen_server:cast(?MODULE, {absorb, SignedTx})
+    end.
+
+absorb_unsafe(SignedTx) ->
+    {Trees, Height, _} = tx_pool:data(),
+    absorb_unsafe(SignedTx, Trees, Height).
+
+absorb_unsafe(SignedTx, Trees, Height) ->
+    NewTrees = txs:digest([SignedTx], Trees, Height + 1),
+    tx_pool:absorb_tx(NewTrees, SignedTx).
+
+
+start_link() ->
+    gen_server:start_link({local, ?MODULE}, ?MODULE, ok, []).
+
+
+%% gen_server callbacks
+
+init(ok) ->
+    {ok, []}.
+
+handle_call(_, _From, State) ->
+    {reply, State, State}.
+
+handle_cast({absorb, SignedTx}, State) ->
+    {Trees, Height, Txs} = tx_pool:data(),
+    Governance = trees:governance(Trees),
+    Tx = testnet_sign:data(SignedTx),
+    Fee = element(4, Tx),
+    Type = element(1, Tx),
+    Cost = governance:get_value(Type, Governance),
+    {ok, MinimumTxFee} = application:get_env(ae_core, minimum_tx_fee),
+    true = Fee > (MinimumTxFee + Cost),
+    Accounts = trees:accounts(Trees),
+    true = testnet_sign:verify(SignedTx, Accounts),
+    case is_in(SignedTx, Txs) of
+        true ->
+            ok = lager:info("Already have this tx");
+        false ->
+            absorb_unsafe(SignedTx, Trees, Height)
+    end,
+    {noreply, State};
+handle_cast(_Msg, State) ->
+    {noreply, State}.
+
+handle_info(_Info, State) ->
+    {noreply, State}.
+
+terminate(_Reason, _State) ->
+    ok = lager:warning("~p died!", [?MODULE]).
+
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
+
+
+%% Internals
+
+is_in(_, []) ->
+    false;
+is_in(STx, [STx2 | T]) ->
+    Tx = testnet_sign:data(STx),
+    Tx2 = testnet_sign:data(STx2),
+    case Tx == Tx2 of
+        true ->
+            true;
+        false ->
+            is_in(STx, T)
+    end.
