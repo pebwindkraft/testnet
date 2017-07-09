@@ -38,17 +38,17 @@ absorb(BP) ->
     case block_hashes:check(BH) of
 	true -> ok;%If we have seen this block before, then don't process it again.
 	false ->
-	    %{BH, _} = block:check1(BP),  %Don't waste time checking invalid blocks more than once.
+            %{BH, _} = block:check1(BP),  %Don't waste time checking invalid blocks more than once.
             io:fwrite("next block is "),
-	    io:fwrite(packer:pack(NextBlock)),
+            io:fwrite(packer:pack(NextBlock)),
             true = block_hashes:check(NextBlock),  %make sure lower block is known
-	    block_hashes:add(BH),
+            block_hashes:add(BH),
             BP2 = block:check2(BP),
-	    io:fwrite("absorb block: "++
+            io:fwrite("absorb block: "++
 		      integer_to_list(block:height(BP)) ++
 		      "\n"),
 	    %io:fwrite(packer:pack(BP)),
-	    save(BP2)
+            save(BP2)
     end.   
 save_helper(BlockPlus) ->
     Z = zlib:compress(term_to_binary(BlockPlus)),
