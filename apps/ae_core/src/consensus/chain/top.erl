@@ -35,18 +35,12 @@ init(ok) ->
     GenesisMakerBlockHash = block:hash(GenesisMakerBlock),
     Top = db:read(?LOC),
     TopHash =
-        case Top of
-            "" ->
+        case Top == "" of
+            true ->
                 ok = block_absorber:save_helper(GenesisMakerBlock),
                 ok = save_hash(GenesisMakerBlockHash),
-                I = keys:pubkey(),
-                M = constants:master_pub(),
-                if
-                    I == M -> keys:update_id(1);
-                    true -> ok
-                end,
                 GenesisMakerBlockHash;
-            Top ->
+            false ->
                 Top
         end,
     spawn(fun() ->

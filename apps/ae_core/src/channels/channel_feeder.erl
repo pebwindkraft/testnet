@@ -6,7 +6,8 @@
 	 new_channel/3,spend/2,close/2,lock_spend/7,
 	 agree_bet/4,garbage/0,entropy/1,
 	 new_channel_check/1,
-	 cid/1,them/1,script_sig_them/1,me/1,script_sig_me/1,
+	 cid/1,them/1,script_sig_them/1,me/1,
+	 script_sig_me/1,
 	 update_to_me/2, new_cd/6, 
 	 make_locked_payment/4, live/1, they_simplify/3,
 	 bets_unlock/1, emsg/1, trade/4, trade/7
@@ -26,7 +27,10 @@ live(X) ->
 new_cd(Me, Them, SSMe, SSThem, Entropy, CID) ->
     #cd{me = Me, them = Them, ssthem = SSThem, ssme = SSMe, live = true, entropy = Entropy, cid = CID}.
 me(X) -> X#cd.me.
-cid(X) when is_integer(X) ->
+cid({ok, CD}) -> cid(CD);
+cid(X) when is_binary(X) ->
+    %{ok, CD} = channel_manager:read(X),
+    %cid(CD);
     %{ok, CD} = 
     cid(channel_manager:read(X));
     %CD#cd.cid;
@@ -67,7 +71,7 @@ handle_cast({close, SS, STx}, X) ->
     SPK = testnet_sign:data(CD#cd.them),
     A3 = channel_team_close_tx:acc1(Tx),
     A4 = channel_team_close_tx:acc2(Tx),
-    K = keys:id(),
+    K = keys:pubkey(),
     true = (((A1 == A3) and (A2 == A4)) or ((A1 == A4) and (A2 == A3))),
     Direction = if
 		    K == A1 -> -1;
@@ -94,7 +98,7 @@ handle_cast({close, SS, STx}, X) ->
     {noreply, X};
 handle_cast(_, X) -> {noreply, X}.
 handle_call({trade, ID, Price, Type, Amount, OID, SSPK, Fee}, _From, X) ->
-    {Trees,_,_} = tx_pool:data(),
+    {Trees,Height,_} = tx_pool:data(),
     Accounts = trees:accounts(Trees),
     true = testnet_sign:verify(keys:sign(SSPK, Accounts), Accounts),
     true = Amount > 0,
@@ -106,14 +110,17 @@ handle_call({trade, ID, Price, Type, Amount, OID, SSPK, Fee}, _From, X) ->
     BetLocation = constants:oracle_bet(),
     SC = market:market_smart_contract(BetLocation, OID, Type, Expires, Price, keys:pubkey(), Period, Amount, OID),
     CodeKey = market:market_smart_contract_key(OID, Expires, keys:pubkey(), Period, OID),
-    %CodeKey = {market, market_smart_contract, OID, Expires, keys:pubkey(), Period, OID),
     SSPK2 = trade(Amount, SC, ID, OID),
     SPK = testnet_sign:data(SSPK),
     SPK = testnet_sign:data(SSPK2),
     {ok, OldCD} = channel_manager:read(ID),
+    DefaultSS = market:unmatched(),
+    SSME = [DefaultSS|OldCD#cd.ssme],
+    SSThem = [DefaultSS|OldCD#cd.ssthem],
+    spk:run(fast, SSME, SPK, Height, 0, Trees),%sanity test
+    spk:run(fast, SSThem, SPK, Height, 0, Trees),%sanity test
     NewCD = OldCD#cd{them = SSPK, me = SPK, 
-		     ssme = [<<>>|OldCD#cd.ssme],
-		     ssthem = [<<>>|OldCD#cd.ssthem]},
+		     ssme = SSME, ssthem = SSThem},
     %arbitrage:write(CodeKey, [ID]),
     channel_manager:write(ID, NewCD),
     {reply, SSPK2, X};
@@ -127,7 +134,9 @@ handle_call({lock_spend, SSPK, Amount, Fee, Code, Sender, Recipient, ESS}, _From
     true = Fee > LightningFee,
     Return = make_locked_payment(Sender, Amount+Fee, Code, []),
     SPK = testnet_sign:data(SSPK),
-    SPK = testnet_sign:data(Return),
+    SPK22 = testnet_sign:data(Return),
+    
+    SPK = SPK22,
     {ok, OldCD} = channel_manager:read(Sender),
     NewCD = OldCD#cd{them = SSPK, me = SPK, 
 		     ssme = [<<>>|OldCD#cd.ssme],
@@ -153,7 +162,7 @@ handle_call({spend, SSPK, Amount}, _From, X) ->
     {ok, OldCD} = channel_manager:read(Other),
     true = OldCD#cd.live,
     OldSPK = OldCD#cd.me,
-    SPK = spk:get_paid(OldSPK, keys:id(), Amount),
+    SPK = spk:get_paid(OldSPK, keys:pubkey(), Amount),
     Return = keys:sign(SPK, Accounts),
     NewCD = OldCD#cd{them = SSPK, me = SPK},
     channel_manager:write(Other, NewCD),
@@ -162,7 +171,7 @@ handle_call({update_to_me, SSPK, From}, _From, X) ->
     %this updates our partner's side of the channel state to include the bet that we already included.
     {Trees,_,_} = tx_pool:data(),
     Accounts = trees:accounts(Trees),
-    MyID = keys:id(),
+    MyID = keys:pubkey(),
     SPK = testnet_sign:data(SSPK),
     Acc1 = spk:acc1(SPK),
     Acc2 = spk:acc2(SPK),
@@ -174,8 +183,6 @@ handle_call({update_to_me, SSPK, From}, _From, X) ->
     true = testnet_sign:verify(keys:sign(SSPK, Accounts), Accounts),
     {ok, OldCD} = channel_manager:read(From),
     SPK2 = OldCD#cd.me,
-    io:fwrite(packer:pack({compare_spk, SPK, SPK2})),
-    io:fwrite("\n"),
     SPK = SPK2,
     NewCD = OldCD#cd{them = SSPK, ssthem = OldCD#cd.ssme},
     channel_manager:write(From, NewCD),
@@ -186,41 +193,50 @@ handle_call({they_simplify, From, ThemSPK, CD}, _FROM, X) ->
     {ok, CD0} = channel_manager:read(From),
     true = live(CD0),
     SPKME = me(CD0),
+    SSME = script_sig_me(CD0),
     {Trees, _, _} = tx_pool:data(),
     Accounts = trees:accounts(Trees),
     true = testnet_sign:verify(keys:sign(ThemSPK, Accounts), Accounts),
     true = live(CD),
     NewSPK = testnet_sign:data(ThemSPK),
-    SSME = script_sig_me(CD0),
+    NewSPK = me(CD),
     SS = script_sig_me(CD),
     SS4 = script_sig_them(CD),
     Entropy = entropy(CD),
-    B = spk:is_improvement(SPKME, SSME,
-			   NewSPK, SS),
+    B2 = spk:force_update(SPKME, SSME, SS4),
     CID = CD#cd.cid,
     Return2 = 
 	if
-	    B ->%if they give free stuff, then accept.
+	    (B2 == {NewSPK, SS}) ->
+%if they find a way to unlock funds, then give it to them.
 		Return = keys:sign(NewSPK, Accounts),
 		NewCD = new_cd(NewSPK, ThemSPK, SS, SS, Entropy, CID),
 		channel_manager:write(From, NewCD),
 		Return;
-	    true ->%if they find a way to unlock funds, then give it to them.
-		{SS5, Return} = simplify_helper(From, SS4),
-		SPK = testnet_sign:data(ThemSPK),
-		SPK2 = testnet_sign:data(Return),
-		SPK = SPK2,
-		Data = new_cd(SPK, ThemSPK, SS5, SS5, Entropy, CID),
-		channel_manager:write(From, Data),
-		Return
+	    true ->
+		B = spk:is_improvement(SPKME, SSME,
+				       NewSPK, SS),
+		if
+		    B ->
+	    %if they give free stuff, then accept.
+			Return = keys:sign(NewSPK, Accounts),
+			NewCD = new_cd(NewSPK, ThemSPK, SS, SS, Entropy, CID),
+			channel_manager:write(From, NewCD),
+			Return;
+		    true ->
+			{SS5, Return} = simplify_helper(From, SS4),
+			SPK = testnet_sign:data(ThemSPK),
+			SPK2 = testnet_sign:data(Return),
+			SPK = SPK2,
+			Data = new_cd(SPK, ThemSPK, SS5, SS5, Entropy, CID),
+			channel_manager:write(From, Data),
+			Return
+		end
 	end,
     {reply, Return2, X};
 handle_call(_, _From, X) -> {reply, X, X}.
 
-%make_bet(Other, Name, Vars, Secret) ->
-%    gen_server:call(?MODULE, {make_bet, Other, Name, Vars, Secret}).
 new_channel(Tx, SSPK, Accounts) ->
-    %io:fwrite("channel feeder inserting channel $$$$$$$$$$$$$$$$$$$$$$$$$$"),
     gen_server:cast(?MODULE, {new_channel, Tx, SSPK, Accounts}).
 spend(SPK, Amount) -> 
     gen_server:call(?MODULE, {spend, SPK, Amount}).
@@ -234,6 +250,9 @@ trade(ID, Price, Type, Amount, OID, SSPK, Fee) ->
 
 update_to_me(SSPK, From) ->
     gen_server:call(?MODULE, {update_to_me, SSPK, From}).
+    
+	    
+	    
     
     
 agree_bet(Name, SSPK, Vars, Secret) -> 
@@ -281,7 +300,7 @@ depth_check2(SPK, C, OldC) ->
     A12 = channels:acc1(OldChannel),
     A21 = channels:acc2(Channel),
     A22 = channels:acc2(OldChannel),
-    K = keys:id(),
+    K = keys:pubkey(),
     B = ((K == A11) or (K == A21)),
     Both = (E1 == E2)  %both is true if the channel has existed a long time.
 	and (E1 == E3) 
@@ -308,11 +327,11 @@ other(Tx) when element(1, Tx) == nc ->
     other(new_channel_tx:acc1(Tx),
 	  new_channel_tx:acc2(Tx)).
 other(Aid1, Aid2) ->
-    K = keys:id(),
+    K = keys:pubkey(),
     Out = if
 	Aid1 == K -> Aid2;
 	Aid2 == K -> Aid1;
-	true -> Aid1 == K
+	true -> Aid1 = K
     end,
     Out.
     
@@ -347,10 +366,11 @@ they_simplify(From, SSPK, CD) ->
 simplify_helper(From, SS) ->
     {ok, CD} = channel_manager:read(From),
     SPK = CD#cd.me,
+    %this is giving the new SS to bet_unlock. channel_feeder:bets_unlock feeds the old SS and old SPK to it.
+    %spk:run(fast, SS, OldSPK
+
     {SSRemaining, NewSPK, _, _} = spk:bet_unlock(SPK, SS),
-    {Trees, _, _} = tx_pool:data(),
-    Accounts = trees:accounts(Trees),
-    Return = keys:sign(NewSPK, Accounts),
+    Return = keys:sign(NewSPK),
     {SSRemaining, Return}. 
 
 make_locked_payment(To, Amount, Code, Prove) -> 
@@ -373,7 +393,9 @@ trade(Amount, Bet, Other, OID) ->
     io:fwrite("\n"),
     SPK = channel_feeder:me(CD),
     CID = spk:cid(SPK),
-    SPK2 = spk:apply_bet(Bet, 0, SPK, 1000, 1000),
+    {ok, TimeLimit} = application:get_env(ae_core, time_limit),
+    {ok, SpaceLimit} = application:get_env(ae_core, space_limit),
+    SPK2 = spk:apply_bet(Bet, 0, SPK, TimeLimit div 10 , SpaceLimit),
     {Trees, _, _} = tx_pool:data(),
     Accounts = trees:accounts(Trees),
     SSPK2 = keys:sign(SPK2, Accounts),

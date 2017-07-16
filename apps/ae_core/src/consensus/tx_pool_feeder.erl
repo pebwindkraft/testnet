@@ -15,9 +15,11 @@
 
 %% API functions
 
-absorb(Txs) when is_list(Txs) ->
-    [absorb(Tx) || Tx <- Txs];
-
+absorb([]) ->
+    ok;
+absorb([H | T]) ->
+    absorb(H),
+    absorb(T);
 absorb(SignedTx) ->
     {_, _, Txs} = tx_pool:data(),
     case is_in(SignedTx, Txs) of

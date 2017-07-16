@@ -19,19 +19,17 @@ killall:
 	@echo "Kill all beam processes from this host"
 	@pkill -9 beam || true
 
-dialyzer: $(OTP_PLT)
-	@nice -19 \
-		dialyzer apps/*/ebin/ --plts $(OTP_PLT) \
-		-Wno_undefined_callbacks \
-		-Wno_improper_lists
+dialyzer:
+	@./rebar3 dialyzer
+
 
 # Local
 
 local-build: KIND=local
 local-build: config/local/sys.config build
 
-local-start: KIND=local
-local-start: start
+local-go: KIND=local
+local-go: go
 
 local-stop: KIND=local
 local-stop: stop
@@ -47,8 +45,8 @@ local-clean: clean
 prod-build: KIND=prod
 prod-build: config/prod/sys.config build
 
-prod-start: KIND=prod
-prod-start: start
+prod-go: KIND=prod
+prod-go: go
 
 prod-stop: KIND=prod
 prod-stop: stop
@@ -61,7 +59,7 @@ prod-clean: clean
 
 # Test
 
-test-build: config/dev1/sys.config config/dev2/sys.config config/dev3/sys.config test1-build
+multi-build: config/dev1/sys.config config/dev2/sys.config config/dev3/sys.config build1
 	@rm -rf _build/dev2 _build/dev3
 	@for x in dev2 dev3; do \
 		cp -R _build/dev1 _build/$$x; \
@@ -70,59 +68,59 @@ test-build: config/dev1/sys.config config/dev2/sys.config config/dev3/sys.config
 		mkdir -p _build/$$x/rel/ae_core/keys; \
 	done
 
-test-start:
-	@make test1-start
-	@make test2-start
-	@make test3-start
+multi-go:
+	@make go1
+	@make go2
+	@make go3
 
-test-stop:
-	@make test1-stop
-	@make test2-stop
-	@make test3-stop
+multi-stop:
+	@make stop1
+	@make stop2
+	@make stop3
 
-test-clean:
-	@make test1-clean
-	@make test2-clean
-	@make test3-clean
+multi-clean:
+	@make clean1
+	@make clean2
+	@make clean3
 
-test1-build: KIND=dev1
-test1-build: build
+build1: KIND=dev1
+build1: build
 
-test1-start: KIND=dev1
-test1-start: start
+go1: KIND=dev1
+go1: go
 
-test1-stop: KIND=dev1
-test1-stop: stop
+stop1: KIND=dev1
+stop1: stop
 
-test1-attach: KIND=dev1
-test1-attach: attach
+attach1: KIND=dev1
+attach1: attach
 
-test1-clean: KIND=dev1
-test1-clean: clean
+clean1: KIND=dev1
+clean1: clean
 
-test2-start: KIND=dev2
-test2-start: start
+go2: KIND=dev2
+go2: go
 
-test2-stop: KIND=dev2
-test2-stop: stop
+stop2: KIND=dev2
+stop2: stop
 
-test2-attach: KIND=dev2
-test2-attach: attach
+attach2: KIND=dev2
+attach2: attach
 
-test2-clean: KIND=dev2
-test2-clean: clean
+clean2: KIND=dev2
+clean2: clean
 
-test3-start: KIND=dev3
-test3-start: start
+go3: KIND=dev3
+go3: go
 
-test3-stop: KIND=dev3
-test3-stop: stop
+stop3: KIND=dev3
+stop3: stop
 
-test3-attach: KIND=dev3
-test3-attach: attach
+attach3: KIND=dev3
+attach3: attach
 
-test3-clean: KIND=dev3
-test3-clean: clean
+clean3: KIND=dev3
+clean3: clean
 
 #
 # Build rules
@@ -133,7 +131,7 @@ test3-clean: clean
 build: $$(KIND)
 	@./rebar3 as $(KIND) release
 
-start: $$(KIND)
+go: $$(KIND)
 	@./_build/$(KIND)/$(CORE) start
 
 stop: $$(KIND)
@@ -154,7 +152,7 @@ $(LOCAL)/ae_core/keys:
 venv-present:
 	@virtualenv -q .
 
-prepare-nose-env: venv-present
+nose-env: venv-present
 	@. bin/activate && $(PIP) -q install -r requirements.txt
 
 python-tests:
@@ -170,15 +168,12 @@ swagger: config/swagger.yaml
 	@cp $(SWTEMP)/src/*.erl $(SWAGGER)/
 	@rm -fr $(SWTEMP)
 
-unlock:
+#for rebar.lock
+dependency-unlock:
 	@./rebar3 unlock
 
-lock:
+dependency-lock:
 	@./rebar3 lock
-
-# 
-# Deps
-# 
 
 config/local/sys.config: config/sys.config.tmpl
 	sed -e "\
@@ -188,7 +183,6 @@ config/local/sys.config: config/sys.config.tmpl
 	{keys_priv, <<\"laPlc2mJq5PM9AjIABaGHKpT/miiL0MNhm7puUh89JI=\">>},\
 	{keys_pub, <<\"BIVZhs16gtoQ/uUMujl5aSutpImC4va8MewgCveh6MEuDjoDvtQqYZ5FeYcUhY/QLjpCBrXjqvTtFiN4li0Nhjo=\">>},\
 	{keys_pass, \"\"},\
-	{keys_id, 1},\
 	:\
 	" $< > $@
 
@@ -211,7 +205,6 @@ config/dev1/sys.config: config/sys.config.tmpl
     {keys_priv, <<\"laPlc2mJq5PM9AjIABaGHKpT/miiL0MNhm7puUh89JI=\">>},\
     {keys_pub, <<\"BIVZhs16gtoQ/uUMujl5aSutpImC4va8MewgCveh6MEuDjoDvtQqYZ5FeYcUhY/QLjpCBrXjqvTtFiN4li0Nhjo=\">>},\
     {keys_pass, \"\"},\
-    {keys_id, 1},\
     :\
     " $< > $@
 
@@ -223,7 +216,6 @@ config/dev2/sys.config: config/sys.config.tmpl
     {keys_pub, <<\"BAiwm5uz5bLkT+Lr++uNI02jU3Xshwyzkywk0x0ARwY5j4lwtxbKpU+oDK/pTQ1PLz7wyaEeDZCyjcwt9Foi2Ng=\">>},\
     {keys_priv, <<\"GMwRk1KJtgJEH2RJp/XVeaQwJ4bpIqAr4lvQcIy4CSQ=\">>},\
     {keys_pass, \"\"},\
-    {keys_id, 2},\
     :\
     " $< > $@
 
@@ -235,29 +227,33 @@ config/dev3/sys.config: config/sys.config.tmpl
     {keys_pub, <<\"BOnadmMfDIoCmio3ReSinirULreS3TbCEdr0R6FDDvoVB5xoAJnvwlL3yMgNhBzEb5l36z7bgizw2EKGn0W9rY8=\">>},\
     {keys_priv, <<\"M/1xsM1DBO82qQcVJVoWVJd4p9YjpwygQJmmYkVLFd8=\">>},\
     {keys_pass, \"\"},\
-    {keys_id, 3},\
     :\
     " $< > $@
 
 tests: killall
-	make test-build
-	make test-clean
-	make test-start
+	make multi-build
+	make multi-clean
+	make multi-go
 	@sleep 3
 	make python-tests
-	make test-stop
+	make multi-stop
+
+multi-quick: kill multi-clean multi-build multi-go
+
+local-quick: kill local-build local-clean
+	./_build/local/rel/ae_core/bin/ae_core console
 
 .PHONY: \
-	local-build local-start local-stop local-attach local-clean \
-	prod-build prod-start prod-stop prod-attach prod-clean \
-	test-build  test-start test-stop test-clean \
-	test1-start test1-stop test1-clean \
-	test2-start test2-stop test2-clean \
-	test3-start test3-stop test3-clean \
+	local-build local-go local-stop local-attach local-clean \
+	prod-build prod-go prod-stop prod-attach prod-clean \
+	multi-build  multi-go multi-stop multi-clean \
+	go1 stop1 clean1 attach1 \
+	go2 stop2 clean2 attach2 \
+	go3 stop3 clean3 attach3 \
 	dialyzer \
 	venv-present \
-	prepare-nose-env \
+	nose-env \
 	python-tests \
 	tests \
 	unit-tests \
-	unlock lock
+	dependency-unlock dependency-lock

@@ -11,6 +11,7 @@ sync_all([Peer|T], Height) ->
                   sync(Peer, Height)
           end),
     sync_all(T, Height).
+
 sync(Peer, MyHeight) ->
     %lower their ranking
     %peers:update_score(Peer, peers:initial_score()),
@@ -45,7 +46,7 @@ trade_blocks(Peer, [PrevBlock|PBT]) ->
     case block:height(PrevBlock) of 
         1 ->  %if PrevBlock is block 1 we stop
             send_blocks(Peer, top:doit(), block:genesis_hash(), [], 0),
-            block_absorber:doit([PrevBlock|PBT]);
+            block_absorber:enqueue([PrevBlock|PBT]);
         _ ->
             PrevHash = block:hash(PrevBlock),
             %{ok, PowBlock} = talker:talk({block, Height}, Peer),
@@ -62,7 +63,7 @@ trade_blocks(Peer, [PrevBlock|PBT]) ->
                     %We send blocks before absorbing to make sure we don't send any downloaded blocks
                     send_blocks(Peer, top:doit(), LastCommonHash, [], block:height(M)),
                     NewBlocks = remove_known_blocks(PBT),
-	            block_absorber:doit(NewBlocks)
+	            block_absorber:enqueue(NewBlocks)
             end
     end.
 

@@ -8,10 +8,10 @@
 
 handle(Req, State) ->
     {ok, Data, _} = cowboy_req:body(Req),
-    %io:fwrite("internal handler "),
-    %io:fwrite(Data),
-    %io:fwrite("\n"),
     true = is_binary(Data),
+    io:fwrite("\ngot this data \n"),
+    io:fwrite(Data),
+    io:fwrite("\n"),
     A = packer:unpack(Data),
     B = doit(A),
     D = packer:pack(B),

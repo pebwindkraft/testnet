@@ -6,13 +6,13 @@ First compile it
 ```
 start the node
 ```
-  make prod-start
+  make prod-go
 ```
 You can communicate with the running node like this:
 ```
   make prod-attach
 ```
-now that you are attached to a node, you can tell it [commands](/docs/commands.md)
+now that you are attached to a node, you can tell it [commands](/docs/api/commands.md)
 
 You can turn off a running node
 ```

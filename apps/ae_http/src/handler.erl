@@ -31,8 +31,8 @@ doit({pubkey}) -> {ok, keys:pubkey()};
 %doit({height}) -> {ok, block_tree:height()};
 %doit({total_coins}) -> {ok, block_tree:total_coins()};
 doit({give_block, SignedBlock}) -> 
-    %true = block:height(SignedBlock) < easy:height() + 2, %removed becouse we may get blocks faster then we can process them
-    block_absorber:doit(SignedBlock),
+    %true = block:height(SignedBlock) < api:height() + 2, %removed becouse we may get blocks faster then we can process them
+    block_absorber:enqueue(SignedBlock),
     {ok, 0};
 doit({block, N, Many}) -> 
     {ok, block:read_many(N, Many)};
@@ -59,9 +59,9 @@ doit({txs}) ->
     {_,_,Txs} = tx_pool:data(),
     {ok, Txs};
 doit({txs, Txs}) ->
+    io:fwrite("received txs\n"),
     tx_pool_feeder:absorb(Txs),
     {ok, 0};
-doit({id}) -> {ok, keys:id()};
 doit({top}) -> 
     Top = block:read(top:doit()),
     Height = block:height(Top),
@@ -184,6 +184,7 @@ doit({trade, Account, Price, Type, Amount, OID, SSPK, Fee}) ->
     SPK = testnet_sign:data(SSPK2),
     Order = order_book:make_order(Account, Price, Type, Amount),
     order_book:add(Order, OID),
+    %api:channel_manager_update(Account, SSPK2, market:unmatched()),
     {ok, SSPK2};
 doit({remove_trade, AccountID, Price, Type, Amount, OID, SSPK}) ->
     %make sure they signed.
