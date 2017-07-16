@@ -33,7 +33,12 @@ doit({pubkey}) -> {ok, keys:pubkey()};
 doit({give_block, SignedBlock}) -> 
     %true = block:height(SignedBlock) < api:height() + 2, %removed becouse we may get blocks faster then we can process them
     block_absorber:enqueue(SignedBlock),
-    {ok, 0};
+    case block_hashes:check(block:hash(SignedBlock)) of
+        true ->
+            {ok, known};
+        _ ->
+            {ok, unknown}
+    end;
 doit({block, N, Many}) -> 
     {ok, block:read_many(N, Many)};
 doit({block, N}) -> 
