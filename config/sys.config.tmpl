@@ -40,6 +40,8 @@
 
     {download_blocks_batch, 100},
     {download_blocks_sizecap, 1000000}, %% 1MB = 1000000B sizecap
+    {push_block_gossip_stop_count, 6}, %% 2^-23 part of network receives new block
+    {push_block_gossip_process_count, 6},
     {garbage_period, 50}
   ]},
 

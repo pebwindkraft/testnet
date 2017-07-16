@@ -35,9 +35,9 @@ doit({give_block, SignedBlock}) ->
     block_absorber:enqueue(SignedBlock),
     case block_hashes:check(block:hash(SignedBlock)) of
         true ->
-            {ok, known};
+            {ok, "known"};
         _ ->
-            {ok, unknown}
+            {ok, "unknown"}
     end;
 doit({block, N, Many}) -> 
     {ok, block:read_many(N, Many)};
