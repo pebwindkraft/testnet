@@ -32,11 +32,11 @@ doit({pubkey}) -> {ok, keys:pubkey()};
 %doit({total_coins}) -> {ok, block_tree:total_coins()};
 doit({give_block, SignedBlock}) -> 
     %true = block:height(SignedBlock) < api:height() + 2, %removed becouse we may get blocks faster then we can process them
-    block_absorber:enqueue(SignedBlock),
     case block_hashes:check(block:hash(SignedBlock)) of
         true ->
             {ok, "known"};
         _ ->
+            block_absorber:enqueue_and_push(SignedBlock),
             {ok, "unknown"}
     end;
 doit({block, N, Many}) -> 

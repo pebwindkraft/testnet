@@ -7,6 +7,7 @@
 %% API
 -export([
     enqueue/1, %% async request
+    enqueue_and_push/1,
     save/1,    %% returs after saving
     garbage/0
 ]).
@@ -22,6 +23,13 @@ handle_cast(garbage, X) ->
     {noreply, X};
 handle_cast({doit, BP}, X) ->
     absorb(BP),
+    {noreply, X};
+handle_cast({doit_and_push, BP}, X) ->
+    case absorb(BP) of
+        ok -> ok;
+        _ ->
+            push_block:push_start(BP)
+    end,
     {noreply, X}.
 handle_call({doit, BP}, _From, X) -> 
     absorb(BP),
@@ -35,6 +43,8 @@ enqueue(InputBlocks) when is_list(InputBlocks) ->
 enqueue(InputBlock) ->
     gen_server:cast(?MODULE, {doit, InputBlock}).
 
+enqueue_and_push(InputBlock) ->
+    gen_server:cast(?MODULE, {doit_and_push, InputBlock}).
 
 save(InputBlocks) when is_list(InputBlocks) ->
     [save(InputBlock) || InputBlock <- InputBlocks];
@@ -43,7 +53,8 @@ save(InputBlock) ->
 
     
 absorb(BP) ->
-    true = block:height(BP) < api:height() + 2,  %simple check
+    {ok, CurrentHeight} = api:height(),
+    true = block:height(BP) < CurrentHeight + 2,  %simple check
     BH = block:hash(BP),
     {BH, NextBlock} = block:check1(BP),
     case block_hashes:check(BH) of
@@ -55,7 +66,8 @@ absorb(BP) ->
 	    BP2 = block:check2(BP),
 	    %io:fwrite(packer:pack(BP)),
 	    do_save(BP2)
-    end.   
+    end.
+
 save_helper(BlockPlus) ->
     Z = zlib:compress(term_to_binary(BlockPlus)),
     binary_to_term(zlib:uncompress(Z)),%sanity check, not important for long-term.
