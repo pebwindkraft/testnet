@@ -240,10 +240,6 @@ make(Header, Txs0, Trees, Pub) ->
 		   prev_hashes = calculate_prev_hashes(Header)
 		  }.
     
-spawn_many(N, _) when N < 1 -> ok;
-spawn_many(N, F) -> 
-    spawn(F),
-    spawn_many(N-1, F).
 guess_number_of_cpu_cores() ->
     case application:get_env(ae_core, test_mode, false) of
 	true -> 1;
@@ -261,11 +257,13 @@ guess_number_of_cpu_cores() ->
         {ok, CoresToMine} = application:get_env(ae_core, cores_to_mine),
         min(Y, CoresToMine)
     end.
+
 spawn_many(0, _) -> ok;
 spawn_many(N, F) -> 
     spawn(F()),
     spawn_many(N-1, F).
-   
+
+
 mine(Rounds) -> 
     Top = headers:top(),
     PB = block:read(Top),

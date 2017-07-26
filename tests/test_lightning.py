@@ -11,6 +11,8 @@ from base import ApiUser, DEV_1_INT, DEV_2_INT, DEV_3_INT
 
 class LightningTest(ApiUser):
     def test_payments(self):
+        import time
+        time.sleep(5)  # for some reason test_fork makes stuff run in backgroud for quite some time
         self.sync(DEV_1_INT, [[127, 0, 0, 1], 3020], sleep=0.5)
         self.sync(DEV_1_INT, [[127, 0, 0, 1], 3030], sleep=0.5)
 

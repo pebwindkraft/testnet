@@ -40,29 +40,29 @@ sync(Peer, MyHeight) ->
             X -> io:fwrite(X)
     end.
 
-trade_blocks(Peer, [PrevBlock|PBT]) ->
+trade_blocks(Peer, [PrevBlock|PBT] = Blocks) ->
     %io:fwrite("trade blocks"),
     %"nextBlock" is from earlier in the chain than prevblock. we are walking backwards
     case block:height(PrevBlock) of 
-        1 ->  %if PrevBlock is block 1 we stop
-            send_blocks(Peer, top:doit(), block:genesis_hash(), [], 0),
-            block_absorber:enqueue([PrevBlock|PBT]);
+        0 ->  %if PrevBlock is block 0 (genesis) we stop
+            send_blocks(Peer, block:hash(block:top()), block:hash(block:read_int(0)), [], 0),
+            block_absorber:enqueue(PBT);
         _ ->
-            PrevHash = block:hash(PrevBlock),
+            %PrevHash = block:hash(PrevBlock), we can't get that becouse to hash we need headers, and to have header we have to have the header of previous block
             %{ok, PowBlock} = talker:talk({block, Height}, Peer),
-            {PrevHash, NextHash} = block:check1(PrevBlock),
-            M = block:read(PrevHash),%check if it is in our memory already.
+            NextHash = block:prev_hash(PrevBlock),
+            M = block:read(NextHash),%check if it is in our memory already.
             case M of
 	        empty -> 
                     {ok, Sizecap} = application:get_env(ae_core, download_blocks_sizecap),
                     {ok, NextBatch} = talker:talk({block_sizecap, NextHash, Sizecap}, Peer),
 	    	    %Heighest first, lowest last. We need to reverse
-		    trade_blocks(Peer, lists:append(lists:reverse(NextBatch),[PrevBlock|PBT]));
-	        _ -> 
-                    LastCommonHash = block:hash(last_known_block([PrevBlock|PBT])),
+		    trade_blocks(Peer, lists:append(lists:reverse(NextBatch), Blocks));
+	        _ ->
+                    LastCommonHash = last_known_block_hash(NextHash, Blocks),
                     %We send blocks before absorbing to make sure we don't send any downloaded blocks
-                    send_blocks(Peer, top:doit(), LastCommonHash, [], block:height(M)),
-                    NewBlocks = remove_known_blocks(PBT),
+                    send_blocks(Peer, block:hash(block:top()), LastCommonHash, [], block:height(M)),
+                    NewBlocks = remove_known_blocks(Blocks),
 	            block_absorber:enqueue(NewBlocks)
             end
     end.
@@ -79,16 +79,16 @@ remove_known_blocks([PrevBlock | PBT]) ->
             remove_known_blocks(PBT)
     end.
 
-last_known_block([Block]) ->
-    Block;
-last_known_block([First | [Second | Other]]) ->
-    SecondHash = block:hash(Second),
-    M = block:read(SecondHash),
+last_known_block_hash(Hash,[]) ->
+    Hash;
+last_known_block_hash(Hash,[First | Other]) ->
+    HashFirst = block:hash(First),
+    M = block:read(HashFirst),
     case M of
         empty ->
-            First;
+            Hash;
         _ ->
-            last_known_block([Second | Other])
+            last_known_block_hash(HashFirst,Other)
     end.
 
 send_blocks(Peer, T, T, L, _) -> 

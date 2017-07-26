@@ -49,6 +49,7 @@ is_b_atom(<<"prev_hashes">>) -> true;
 is_b_atom(<<"error">>) -> true;
 is_b_atom(<<"block">>) -> true;
 is_b_atom(<<"block_plus">>) -> true;
+is_b_atom(<<"block_sizecap">>) -> true;
 is_b_atom(<<"ex">>) -> true;
 is_b_atom(<<"timeout">>) -> true;
 is_b_atom(<<"signed">>) -> true;
