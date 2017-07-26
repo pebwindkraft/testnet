@@ -15,10 +15,9 @@ handle_cast(_, {go, 0, _}) ->
 handle_cast({known,Block}, {go, 1, _}) ->
     {noreply, stop};
 handle_cast({known,Block}, {go, N, Peers}) ->
-    push(Block),
     {noreply, {go, N-1, Peers}};
 handle_cast({unknown, Block}, {go, N, Peers}) ->
-    push(Block),
+    push(Block, gossip_stop_count()-N+1),
     {noreply, {go, gossip_stop_count(), Peers}};
 handle_cast({push,Block}, {go, N, [Peer | Peers]}) ->
     spawn(fun() ->
