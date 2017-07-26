@@ -22,8 +22,6 @@ handle_cast({unknown, Block}, {go, N, Peers}) ->
     {noreply, {go, gossip_stop_count(), Peers}};
 handle_cast({push,Block}, {go, N, [Peer | Peers]}) ->
     spawn(fun() ->
-                  erlang:display("doing"),
-                  io:fwrite("doing2"),
                   Resp = push_to_peer(Block, Peer), 
                   erlang:display(Resp),
                   case Resp of
@@ -32,6 +30,9 @@ handle_cast({push,Block}, {go, N, [Peer | Peers]}) ->
                           gen_server:cast(?MODULE, {known, Block});
                       "unknown" ->
                           io:fwrite("got unknown\n"),
+                          gen_server:cast(?MODULE, {unknown, Block});
+                      _ ->
+                          io:fwrite("got something else\n"),
                           gen_server:cast(?MODULE, {unknown, Block})
                   end
           end),
