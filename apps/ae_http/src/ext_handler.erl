@@ -1,4 +1,4 @@
--module(handler).
+-module(ext_handler).
 
 -export([init/3, handle/2, terminate/3, doit/1]).
 %example of talking to this handler:
@@ -42,6 +42,8 @@ doit({give_block, SignedBlock}) ->
 doit({block, N, Many}) -> 
     {ok, block:read_many(N, Many)};
 doit({block, N}) -> 
+    true = is_integer(N),
+    true = N > -1,
     {ok, block:read_int(N)};
 doit({block_sizecap, N, Cap}) ->
     {ok, block:read_many_sizecap(N, Cap - 10)};  %-10 for some begining and end addictional characters
@@ -51,7 +53,7 @@ doit({headers, Many, N}) ->
     X = many_headers(Many, N),
     {ok, X};
     %{ok, block_tree:read_int(N)};
-doit({tophash}) -> {ok, top:doit()};
+doit({tophash}) -> {ok, headers:top()};
 %doit({recent_hash, H}) -> {ok, block_tree:is_key(H)};
 doit({peers}) ->
     P = peers:all(),
@@ -68,7 +70,7 @@ doit({txs, Txs}) ->
     tx_pool_feeder:absorb(Txs),
     {ok, 0};
 doit({top}) -> 
-    Top = block:read(top:doit()),
+    Top = block:top(),
     Height = block:height(Top),
     {ok, Top, Height};
 doit({test}) -> 
@@ -88,25 +90,21 @@ doit({new_channel, STx, SSPK}) ->
     undefined = channel_feeder:cid(Tx),
     true = new_channel_tx:good(Tx),%checks the min_channel_ratio.
     true = channel_feeder:new_channel_check(Tx), %make sure we aren't already storing a channel with this same CID/partner combo. Also makes sure that we aren't reusing entropy.
-    SSTx = keys:sign(STx, Accounts),
+    SSTx = keys:sign(STx),
     tx_pool_feeder:absorb(SSTx),
-    S2SPK = keys:sign(SPK, Accounts),
+    S2SPK = keys:sign(SPK),
     channel_feeder:new_channel(Tx, SSPK, Accounts),
     %api:sync(),
     {ok, SSTx, S2SPK};
 doit({grow_channel, Stx}) ->
     Tx = testnet_sign:data(Stx),
     true = grow_channel_tx:good(Tx),%checks the min_channel_ratio
-    {Trees,_,_} = tx_pool:data(),
-    Accounts = trees:accounts(Trees),
-    SStx = keys:sign(Stx, Accounts),
+    SStx = keys:sign(Stx),
     tx_pool_feeder:absorb(SStx),
     {ok, ok};
 doit({spk, CID})->
     {ok, CD} = channel_manager:read(CID),
-    {Trees, _, _} = tx_pool:data(),
-    Accounts = trees:accounts(Trees),
-    ME = keys:sign(channel_feeder:me(CD), Accounts),
+    ME = keys:sign(channel_feeder:me(CD)),
     Out = {ok, CD, ME},
     Out = packer:unpack(packer:pack(Out)),
     Out;
@@ -119,13 +117,12 @@ doit({close_channel, CID, PeerId, SS, STx}) ->
     Fee = channel_team_close_tx:fee(Tx),
     {ok, CD} = channel_manager:read(PeerId),
     SPK = channel_feeder:me(CD),
-    Height = block:height(block:read(top:doit())),
+    Height = headers:height(headers:top()),
     {Trees,_,_} = tx_pool:data(),
-    Accounts = trees:accounts(Trees),
     {Amount, _, _, _} = spk:run(fast, SS, SPK, Height, 0, Trees),
     Shares = [],
     {Tx, _} = channel_team_close_tx:make(CID, Trees, Amount, Shares, Fee),
-    SSTx = keys:sign(STx, Accounts),
+    SSTx = keys:sign(STx),
     tx_pool_feeder:absorb(SSTx),
     {ok, SSTx};
 doit({locked_payment, SSPK, Amount, Fee, Code, Sender, Recipient, ESS}) ->

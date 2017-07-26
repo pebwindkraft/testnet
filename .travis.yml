@@ -1,0 +1,16 @@
+language: erlang
+otp_release:
+  - 19.3
+before_install:
+  - make nose-env
+install: true
+script:
+  - make tests
+
+after_failure:
+  - ls -l _build/dev3/rel/ae_core/log/*
+  - for F in _build/dev3/rel/ae_core/log/*; do echo "${F:?}"; cat "${F:?}"; echo; done
+  - ls -l _build/dev1/rel/ae_core/log/*
+  - for F in _build/dev1/rel/ae_core/log/*; do echo "${F:?}"; cat "${F:?}"; echo; done
+  - ls -l _build/dev2/rel/ae_core/log/*
+  - for F in _build/dev2/rel/ae_core/log/*; do echo "${F:?}"; cat "${F:?}"; echo; done

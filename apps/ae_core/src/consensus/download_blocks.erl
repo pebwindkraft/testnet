@@ -108,6 +108,7 @@ send_blocks(Peer, TopHash, CommonHash, L, CommonHeight) ->
     end.
 
 send_blocks_external(Peer, Blocks) ->
+    lager:debug("send_blocks_external: ~p" ,[packer:pack({sending_blocks, Blocks})]),
     spawn(?MODULE, do_send_blocks, [Peer, Blocks]).
 
 do_send_blocks(_, []) -> ok;

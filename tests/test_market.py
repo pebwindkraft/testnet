@@ -1,10 +1,8 @@
 from base import ApiUser, DEV_1_INT, DEV_2_INT, DEV_3_INT
-from nose.tools import nottest
 
 
 class MarketTest(ApiUser):
     def test_market(self):
-        #self.mine_block(DEV_1_INT, [1, 1], sleep=5)
         self.sync(DEV_1_INT, [[127, 0, 0, 1], 3020], sleep=0.1)
         self.sync(DEV_1_INT, [[127, 0, 0, 1], 3030], sleep=0.1)
         pub1 = "BOLh/UTJK6g4bgC4hSh941OEVdNfTBvqAU5OvgWWL3Dnv8M/dy6oioTIH9fHXdWaXXPop1BxQ/x3MfoEd3lnV7g="
@@ -15,8 +13,8 @@ class MarketTest(ApiUser):
         self.request("dump_channels", DEV_1_INT, [], sleep=0.1)
         self.request("dump_channels", DEV_2_INT, [], sleep=0.1)
         self.request("dump_channels", DEV_3_INT, [], sleep=0.1)
-        self.load_key(DEV_2_INT, [pub1, priv1, brainwallet], sleep=0.1)
-        self.load_key(DEV_3_INT, [pub2, priv2, brainwallet], sleep=0.1)
+        self.load_key(DEV_2_INT, [pub1, priv1, brainwallet], sleep=1)
+        self.load_key(DEV_3_INT, [pub2, priv2, brainwallet], sleep=1)
         self.create_account(DEV_1_INT, [pub1, 10], sleep=0.1)
         self.create_account(DEV_1_INT, [pub2, 10], sleep=0.1)
         self.sync(DEV_1_INT, [[127, 0, 0, 1], 3030], sleep=0.1)
@@ -32,7 +30,7 @@ class MarketTest(ApiUser):
         self.request('mine_block', DEV_1_INT, [3, 1], sleep=3)
         self.request('sync', DEV_1_INT, [[127, 0, 0, 1], 3030], sleep=0.1)
         self.request('sync', DEV_1_INT, [[127, 0, 0, 1], 3020], sleep=0.1)
-        self.request('oracle_close', DEV_1_INT, [1], sleep=0.1)
+        self.request('oracle_close', DEV_1_INT, [1], sleep=1)
         self.request('new_question_oracle', DEV_1_INT, [0, 'aXMgMisyPTQ/', 1], sleep=0.1)
         self.request('sync', DEV_1_INT, [[127, 0, 0, 1], 3030], sleep=0.1)
         self.request('sync', DEV_1_INT, [[127, 0, 0, 1], 3020], sleep=0.1)
@@ -47,14 +45,12 @@ class MarketTest(ApiUser):
         self.request('oracle_bet', DEV_1_INT, [2, 1, 269], sleep=0.1)
         self.request('mine_block', DEV_3_INT, [11, 1], sleep=0.1)
         self.request('oracle_close', DEV_1_INT, [2], sleep=0.1)
-        self.request('sync', DEV_1_INT, [[127, 0, 0, 1], 3030], sleep=0.1)
-        self.request('sync', DEV_1_INT, [[127, 0, 0, 1], 3020], sleep=0.1)
-        self.request('settle_bets', DEV_3_INT, [], sleep=0.1)
-        self.request('oracle_shares', DEV_1_INT, [1], sleep=0.1)
-        self.request('oracle_shares', DEV_1_INT, [2], sleep=0.1)
+        self.request('sync', DEV_1_INT, [[127, 0, 0, 1], 3030], sleep=0.5)
+        self.request('sync', DEV_1_INT, [[127, 0, 0, 1], 3020], sleep=0.5)
+        self.request('settle_bets', DEV_3_INT, [], sleep=0.5)
+        self.request('oracle_shares', DEV_1_INT, [1], sleep=0.5)
+        self.request('oracle_shares', DEV_1_INT, [2], sleep=0.5)
         #self.request('oracle_unmatched', DEV_1_INT, [1, 1], sleep=0.1)
         #self.request('oracle_unmatched', DEV_1_INT, [2, 1], sleep=0.1)
-        self.request('pull_channel_state', DEV_1_INT, [[127,0,0,1], 3030], sleep=0.1)
+        self.request('pull_channel_state', DEV_1_INT, [[127,0,0,1], 3030], sleep=0.5)
         self.request('pull_channel_state', DEV_2_INT, [[127,0,0,1], 3030], sleep=0.1)
-        
-        

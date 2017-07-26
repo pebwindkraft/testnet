@@ -1,5 +1,5 @@
 %% basic handler
--module(swagger_account_handler).
+-module(swagger_external_handler).
 
 %% Cowboy REST callbacks
 -export([allowed_methods/2]).
@@ -56,7 +56,23 @@ rest_init(Req0, {Operations, LogicHandler, ValidatorState}) ->
 allowed_methods(
     Req,
     State = #state{
-        operation_id = 'AddAccount'
+        operation_id = 'ChannelSync'
+    }
+) ->
+    {[<<"POST">>], Req, State};
+
+allowed_methods(
+    Req,
+    State = #state{
+        operation_id = 'GetHeader'
+    }
+) ->
+    {[<<"POST">>], Req, State};
+
+allowed_methods(
+    Req,
+    State = #state{
+        operation_id = 'GetHeaders'
     }
 ) ->
     {[<<"POST">>], Req, State};
@@ -70,6 +86,12 @@ allowed_methods(Req, State) ->
         Req :: cowboy_req:req(),
         State :: state()
     }.
+
+is_authorized(Req, State) ->
+    {true, Req, State};
+
+is_authorized(Req, State) ->
+    {true, Req, State};
 
 is_authorized(Req, State) ->
     {true, Req, State};
@@ -95,7 +117,27 @@ content_types_accepted(Req, State) ->
 valid_content_headers(
     Req0,
     State = #state{
-        operation_id = 'AddAccount'
+        operation_id = 'ChannelSync'
+    }
+) ->
+    Headers = [],
+    {Result, Req} = validate_headers(Headers, Req0),
+    {Result, Req, State};
+
+valid_content_headers(
+    Req0,
+    State = #state{
+        operation_id = 'GetHeader'
+    }
+) ->
+    Headers = [],
+    {Result, Req} = validate_headers(Headers, Req0),
+    {Result, Req, State};
+
+valid_content_headers(
+    Req0,
+    State = #state{
+        operation_id = 'GetHeaders'
     }
 ) ->
     Headers = [],

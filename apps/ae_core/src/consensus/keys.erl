@@ -5,10 +5,10 @@
 -behaviour(gen_server).
 -export([start_link/0,code_change/3,handle_call/3,
 	 handle_cast/2,handle_info/2,init/1,terminate/2, 
-	 pubkey/0,sign/2,sign/1,raw_sign/1,load/3,unlock/1,
+	 pubkey/0,sign/1,raw_sign/1,load/3,unlock/1,
 	 lock/0,status/0,change_password/2,new/1,
 	 shared_secret/1,%address/0,
-	 encrypt/2,decrypt/1,
+	 encrypt/2,decrypt/1,keypair/0,
 	 test/0,format_status/2]).
 %-define(LOC, "keys.db").
 -define(LOC, constants:keys()).
@@ -48,8 +48,8 @@ handle_call({raw_sign, M}, _From, X) when not is_binary(M) ->
     {reply, "not binary", X};
 handle_call({raw_sign, M}, _From, R) ->
     {reply, testnet_sign:sign(M, R#f.priv), R};
-handle_call({sign, M, Accounts}, _From, R) -> 
-    {reply, testnet_sign:sign_tx(M, R#f.pub, R#f.priv, Accounts), R};
+handle_call({sign, M}, _From, R) -> 
+    {reply, testnet_sign:sign_tx(M, R#f.pub, R#f.priv), R};
 handle_call(status, _From, R) ->
     Y = db:read(?LOC),
     Out = if
@@ -59,6 +59,12 @@ handle_call(status, _From, R) ->
           end,
     {reply, Out, R};
 handle_call(pubkey, _From, R) -> {reply, R#f.pub, R};
+handle_call(keypair, _From, R) -> 
+    Keys = case application:get_env(ae_core, test_mode, false) of
+               true -> {R#f.pub, R#f.priv};
+               _ -> none
+           end,
+    {reply, Keys, R};
 handle_call({encrypt, Message, Pubkey}, _From, R) ->
     io:fwrite(packer:pack({encrytion, base64:encode(Pubkey), base64:encode(R#f.pub)})),
     EM=encryption:send_msg(Message, base64:encode(Pubkey), base64:encode(R#f.pub), base64:encode(R#f.priv)),
@@ -114,15 +120,15 @@ handle_info(set_initial_keys, State) ->
 handle_info(_Info, State) ->
     {noreply, State}.
 
+keypair() -> gen_server:call(?MODULE, keypair).
 pubkey() -> gen_server:call(?MODULE, pubkey).
 %address() -> accounts:pub_decode(pubkey()).
 %sign(M) -> gen_server:call(?MODULE, {sign, M, tx_pool:accounts()}).
-sign(M) -> sign(M, 0).
-sign(M, Accounts) -> 
+sign(M) -> 
     S = status(),
     case S of
 	unlocked ->
-	    gen_server:call(?MODULE, {sign, M, Accounts});
+	    gen_server:call(?MODULE, {sign, M});
 	_ -> io:fwrite("you need to unlock your account before you can sign transactions. use keys:unlock(\"password\").\n"),
 	     {error, locked}
     end.
@@ -148,7 +154,7 @@ encrypt(Message, Pubkey) ->
 test() ->
     unlocked = keys:status(),
     Tx = {spend, 1, 1, 2, 1, 1},
-    Stx = sign(Tx, 1),
+    Stx = sign(Tx),
     %{signed,{spend,1,1,2,1,1},
     %<<"MEQCIHfFk8egH3Jz15NyipyuTxBBY9bP1u078CFn+lhDbsKoAiB4rMgteg8mXXJ2GGbfcvySR7RmoK6xn5kbNoIE88drjw==">>,
     %<<"QkF4eUUvV2htL1NyMG5PTmJjN2pjaXlBZjhvNHZSZXhOc0ovaVZweVRpMmxTd0lMb0ZJTm1JUjNVdDNpMGRTaEIrd1Fz"...>>,

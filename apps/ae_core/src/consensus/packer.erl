@@ -27,6 +27,7 @@ unpack_helper(J) ->
     list_to_tuple([Out|lists:map(fun(X) -> unpack_helper(X) end, tl(J))]).
 pack(X) -> jiffy:encode(untup(X)).
 -record(d, {a = "", b = "" }).
+is_b_atom(<<"coinbase">>) -> true;
 is_b_atom(<<"settle_bets">>) -> true;
 is_b_atom(<<"market">>) -> true;
 is_b_atom(<<"oracles">>) -> true;
@@ -95,7 +96,6 @@ is_b_atom(<<"delete_account">>) -> true;
 is_b_atom(<<"account">>) -> true;
 is_b_atom(<<"repo_account">>) -> true;
 is_b_atom(<<"channel_balance">>) -> true;
-is_b_atom(<<"solo_close_channel">>) -> true;
 is_b_atom(<<"channel_timeout">>) -> true;
 is_b_atom(<<"new_channel_with_server">>) -> true;
 is_b_atom(<<"pull_channel_state">>) -> true;
@@ -107,7 +107,6 @@ is_b_atom(<<"grow_channel">>) -> true;
 is_b_atom(<<"channel_solo_close">>) -> true;
 is_b_atom(<<"channel_team_close">>) -> true;
 is_b_atom(<<"channel_repo">>) -> true;
-is_b_atom(<<"channel_timeout">>) -> true;
 is_b_atom(<<"channel_slash">>) -> true;
 is_b_atom(<<"channel_close">>) -> true;
 is_b_atom(<<"lightning_spend">>) -> true;

@@ -7,7 +7,6 @@
 # It lightning spends 4 tokens one way, then spends the same 4 back.
 
 from base import ApiUser, DEV_1_INT, DEV_2_INT, DEV_3_INT
-from nose.tools import nottest
 
 
 class LightningTest(ApiUser):
@@ -22,8 +21,8 @@ class LightningTest(ApiUser):
         pub2 = 'BFRjuCgudSTRU79SVoCBvWi55+N1QethvQI6LKUCoEPHvIfedkQLxnuD2VJHqoLrULmXyexRWs2sOTwyLsdyL+E='
         priv2 = 'IxHs+qu1daOGQ/PfBN4LHM3h2W/5X3dGYfb4q3lkupw='
         brainwallet = ''
-        self.load_key(DEV_2_INT, [pub1, priv1, brainwallet])
-        self.load_key(DEV_3_INT, [pub2, priv2, brainwallet], sleep=0.5)
+        self.load_key(DEV_2_INT, [pub1, priv1, brainwallet], sleep=1)
+        self.load_key(DEV_3_INT, [pub2, priv2, brainwallet], sleep=1)
         self.create_account(DEV_1_INT, [pub1, 10], sleep=0.5)
         self.create_account(DEV_1_INT, [pub2, 10], sleep=0.5)
         self.sync(DEV_1_INT, [[127, 0, 0, 1], 3030], sleep=0.1)
@@ -38,8 +37,8 @@ class LightningTest(ApiUser):
         self.request("dump_channels", DEV_1_INT, [], sleep=0.1)
         self.request("dump_channels", DEV_2_INT, [], sleep=0.1)
         self.request("dump_channels", DEV_3_INT, [], sleep=0.1)
-        self.load_key(DEV_2_INT, [pub1, priv1, brainwallet], sleep=0.1)
-        self.load_key(DEV_3_INT, [pub2, priv2, brainwallet], sleep=0.1)
+        self.load_key(DEV_2_INT, [pub1, priv1, brainwallet], sleep=1)
+        self.load_key(DEV_3_INT, [pub2, priv2, brainwallet], sleep=1)
         self.create_account(DEV_1_INT, [pub1, 10], sleep=0.1)
         self.create_account(DEV_1_INT, [pub2, 10], sleep=0.1)
 
