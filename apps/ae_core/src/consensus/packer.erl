@@ -131,6 +131,8 @@ is_b_atom(<<"trade">>) -> true;
 is_b_atom(<<"test_it_out">>) -> true;
 is_b_atom(<<"dump_channels">>) -> true;
 is_b_atom(<<"test">>) -> true;
+is_b_atom(<<"known">>) -> true;
+is_b_atom(<<"unknown">>) ->true;
 is_b_atom(X) when is_binary(X) -> 
     io:fwrite("FAILED TO UNPACK ATOM "),
     io:fwrite(X),

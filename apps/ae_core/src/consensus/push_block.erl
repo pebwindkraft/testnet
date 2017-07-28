@@ -1,13 +1,23 @@
+
 -module(push_block).
 -behaviour(gen_server).
--export([start_link/0,code_change/3,handle_call/3,handle_cast/2,
-	 handle_info/2,init/1,terminate/2,
-	 stop/0,status/0,push_start/1]).
-init(ok) -> {ok, stop}.
+-export([start_link/0,code_change/3,handle_call/3,
+         handle_cast/2,handle_info/2,init/1,terminate/2).
+
+%% API
+-export([
+         push_start/1,  %%starts whole process, takes one Block
+         status/0,
+         stop/0,
+]).
+
+init(ok) -> {
+       ok, stop}.
 start_link() -> gen_server:start_link({local, ?MODULE}, ?MODULE, ok, []).
 code_change(_OldVsn, State, _Extra) -> {ok, State}.
 terminate(_, _) -> io:format("died!"), ok.
 handle_info(_, X) -> {noreply, X}.
+
 handle_cast(_, {go, _, []}) ->
     {noreply, stop};
 handle_cast(_, {go, 0, _}) ->
@@ -22,16 +32,15 @@ handle_cast({unknown, Block}, {go, N, Peers}) ->
 handle_cast({push,Block}, {go, N, [Peer | Peers]}) ->
     spawn(fun() ->
                   Resp = push_to_peer(Block, Peer), 
-                  erlang:display(Resp),
                   case Resp of
-                      "known" ->
-                          io:fwrite("got known\n"),
+                      known ->
+                          lager:debug("got known\n"),
                           gen_server:cast(?MODULE, {known, Block});
-                      "unknown" ->
-                          io:fwrite("got unknown\n"),
+                      unknown ->
+                          lager:debug("got unknown\n"),
                           gen_server:cast(?MODULE, {unknown, Block});
                       _ ->
-                          io:fwrite("got something else\n"),
+                          lager:debug("got \n"),
                           gen_server:cast(?MODULE, {unknown, Block})
                   end
           end),
@@ -40,6 +49,7 @@ handle_cast(stop, _) ->
     {noreply, stop};
 handle_cast(_, stop) ->
     {noreply, stop}.
+
 handle_call(status, _From, X) -> {reply, X, X};
 handle_call(start, _From, stop) ->
     {reply, go, {go, gossip_stop_count(), shuffle(peers:all())}};
