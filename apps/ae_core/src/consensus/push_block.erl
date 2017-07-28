@@ -61,7 +61,7 @@ push(Block) ->
     gen_server:cast(?MODULE, {push,Block}).
     
 push_to_peer(Block, Peer) ->
-    remote_peer({give_block, Block}, Peer).
+    talker:talk({give_new_block, Block}, Peer).
 
 stop() -> gen_server:cast(?MODULE, stop).
 
@@ -71,12 +71,6 @@ gossip_stop_count() ->
 
 status() ->
     gen_server:call(?MODULE, status).
-
-remote_peer(Transaction, Peer) ->
-    case talker:talk(Transaction, Peer) of
-        {ok, Return0} -> Return0;
-        Return1 -> Return1
-    end.
 
 shuffle(L) ->
     [X||{_,X} <- lists:sort([ {random:uniform(), N} || N <- L])].
