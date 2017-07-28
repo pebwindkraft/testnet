@@ -33,9 +33,9 @@ sync(Peer, MyHeight) ->
                     {ok, Blocks} = talker:talk({block_sizecap, HH, Sizecap}, Peer),
                     trade_blocks(Peer, Blocks);
                 true ->
-                    trade_blocks(Peer, [TopBlock]),
-                    get_txs(Peer)
+                    trade_blocks(Peer, [TopBlock])
             end,
+            get_txs(Peer),
 	    trade_peers(Peer);
             X -> io:fwrite(X)
     end.
@@ -61,7 +61,7 @@ trade_blocks(Peer, [PrevBlock|PBT] = Blocks) ->
 	        _ ->
                     LastCommonHash = last_known_block_hash(NextHash, Blocks),
                     %We send blocks before absorbing to make sure we don't send any downloaded blocks
-                    send_blocks(Peer, block:hash(block:top()), LastCommonHash, [], block:height(M)),
+                    send_blocks(Peer, block:hash(block:top()), LastCommonHash, [], block:height(block:read(LastCommonHash))),
                     NewBlocks = remove_known_blocks(Blocks),
 	            block_absorber:enqueue(NewBlocks)
             end
@@ -93,18 +93,16 @@ last_known_block_hash(Hash,[First | Other]) ->
 
 send_blocks(Peer, T, T, L, _) -> 
     send_blocks_external(Peer, L);
-send_blocks(Peer, 0, _, L, _) ->
-    send_blocks_external(Peer, L);
 send_blocks(Peer, TopHash, CommonHash, L, CommonHeight) ->
-    BlockPlus = block:read(TopHash),
-    PrevHash = block:prev_hash(BlockPlus),
-    case block:height(BlockPlus) of
+    Block = block:read(TopHash),
+    PrevHash = block:prev_hash(Block),
+    case block:height(Block) of
         CommonHeight -> %if we realize, we are on diffrent fork then the peer
             BlockCommon = block:read(CommonHash),
             NewCommon = block:prev_hash(BlockCommon),
-            send_blocks(Peer, PrevHash, NewCommon, [BlockPlus|L], block:height(BlockCommon)-1); %we send one more block till we find one common with our main chain and the fork
+            send_blocks(Peer, PrevHash, NewCommon, [Block|L], CommonHeight-1); %we send one more block till we find one common with our main chain and the fork
         _ ->
-            send_blocks(Peer, PrevHash, CommonHash, [BlockPlus|L], CommonHeight)
+            send_blocks(Peer, PrevHash, CommonHash, [Block|L], CommonHeight)
     end.
 
 send_blocks_external(Peer, Blocks) ->
