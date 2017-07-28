@@ -37,7 +37,7 @@ doit({give_new_block, SignedBlock}) ->
     %true = block:height(SignedBlock) < api:height() + 2, %removed becouse we may get blocks faster then we can process them
     case block_hashes:check(block:hash(SignedBlock)) of
         true ->
-            {ok, known);
+            {ok, known};
         _ ->
             block_absorber:enqueue_and_push(SignedBlock),
             {ok, unknown}
