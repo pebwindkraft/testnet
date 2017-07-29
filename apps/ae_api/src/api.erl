@@ -512,7 +512,7 @@ add_peer(IP, Port) ->
     0.
 sync(IP, Port) ->
     lager:info("Sync with ~p ~p ~n", [IP, Port]),
-    MyHeight = block:height(block:read(headers:top())),
+    MyHeight = headers:height(headers:top()),
     ok = download_blocks:sync_all([{IP, Port}], MyHeight).
 
 keypair() ->
