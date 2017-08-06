@@ -15,6 +15,7 @@ Once on the running system, check that these packages get/are installed:
 + m4
 + ncurses-devel
 + libopenssl-devel
++ unixODBC-devel
 ```
 
 Erlang
